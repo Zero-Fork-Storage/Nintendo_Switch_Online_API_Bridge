@@ -1,0 +1,2 @@
+# Nintendo_Switch_Online_API_Bridge
+NINTENDO SWITCH ONLINE API BRIDGE
