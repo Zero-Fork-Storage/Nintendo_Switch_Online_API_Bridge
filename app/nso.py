@@ -6,7 +6,7 @@ import keyring
 import pickle
 
 from app.flapg import FlapgAPI
-
+from app.nsa import NintendoSwitchAccount
 
 class NintendoSwitchOnlineLogin:
     def __init__(self, nso_app_version: str, user_info: dict, user_lang: str, access_token, guid):
@@ -55,7 +55,8 @@ class NintendoSwitchOnlineLogin:
 
 
 class NintendoSwitchOnlineAPI:
-    def __init__(self, nso_app_version: str, user_info: dict, service_token: dict, user_lang: str = "en-US"):
+    def __init__(self, nso_app_version: str, session_token: str, user_lang: str = "en-US"):
+        self.nsa = NintendoSwitchAccount()
         self.nso_app_version = nso_app_version or "2.1.1"
         self.url = 'https://api-lp1.znc.srv.nintendo.net'
         self.headers = {
@@ -70,11 +71,13 @@ class NintendoSwitchOnlineAPI:
         }
 
         self.user_lang = user_lang
-        self.user_info = user_info
-        self.token = service_token
+        self.token = self.nsa.get_service_token(session_token=session_token)
         self.id_token = self.token.get('id_token')
         self.access_token = self.token.get('access_token')
+        
         self.guid = str(uuid.uuid4())
+
+        self.user_info = self.nsa.get_user_info(self.access_token)
 
         self.login = {
             'login': None,
@@ -102,14 +105,13 @@ class NintendoSwitchOnlineAPI:
         wasc_time = keyring.get_password("nso-bridge", "wasc_time")
         
         if wasc_time is None:
-            wasc_time = 0
-        else:
-            if wasc_access_token is not None:
-                self.login = pickle.loads(base64.b64decode(wasc_access_token.encode('utf-8')))
-                self.headers['Authorization'] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
-                return
+            wasc_time = 0.0
         
-        if time.time() - int(wasc_time) < 7170:
+        if wasc_access_token is not None:
+            self.login = pickle.loads(base64.b64decode(wasc_access_token.encode('utf-8')))
+            self.headers['Authorization'] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
+        
+        if time.time() - int(wasc_time[0]) < 7170:
             return
         
         login = NintendoSwitchOnlineLogin(
