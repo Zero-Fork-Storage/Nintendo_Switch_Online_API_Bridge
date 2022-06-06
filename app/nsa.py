@@ -4,7 +4,7 @@ import sys
 import base64
 import hashlib
 import requests
-
+import keyring
 from bs4 import BeautifulSoup
 
 
@@ -31,7 +31,7 @@ class NintendoSwitchAccount:
     def get_nso_app_version(self):
         try:
             page = requests.get(self.apple_app_store_url, headers={
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36'
             })
             soup = BeautifulSoup(page.text, "html.parser")
             elt = soup.find("p", {"class": "whats-new__latest__version"})
@@ -69,34 +69,22 @@ class NintendoSwitchAccount:
         }
         return body
 
-    def nso_login(self):
+    def nso_login(self, r_input):
         resp = self.session.get(url=self.nso_authorize_url, headers={
             'Accept-Encoding': 'gzip',
             'User-Agent': 'OnlineLounge/%s NASDKAPI Android' % self.version,
         }, params=self.payload_auth())
         if resp.status_code != 200:
             raise Exception("Error: %s" % resp.status_code)
+
         print("URL: " + str(resp.history[0].url))
-        while True:
-            try:
-                use_account_url = input("")
-                if use_account_url == "skip":
-                    return "skip"
-                tokenPattern = re.compile(r'(eyJhbGciOiJIUzI1NiJ9\.[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*)')
-                code = tokenPattern.findall(use_account_url)
-                return self.get_session_token(code[0], self.verify.replace(b'=', b''))
-            except KeyboardInterrupt:
-                print("\nExiting...")
-                sys.exit(1)
-            except AttributeError:
-                print("\nInvalid URL")
-                sys.exit(1)
-            except KeyError:
-                print("\nThe URL has expired.")
-                sys.exit(1)
-            except Exception:
-                print("\nUnknown error")
-                sys.exit(1)
+
+        tokenPattern = re.compile(r'(eyJhbGciOiJIUzI1NiJ9\.[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*)')
+        code = tokenPattern.findall(r_input())
+        return self.get_session_token(code[0], self.verify.replace(b'=', b''))
+    
+    def m_input(self):
+        return input("Enter the callback url: \n")
         
     def get_session_token(self, session_token_code, auth_code_verifier):
         resp = self.session.post(
@@ -116,7 +104,10 @@ class NintendoSwitchAccount:
         )
         if resp.status_code != 200:
             raise Exception("Error: %s" % resp.status_code)
-        return resp.json()["session_token"]
+        sess = resp.json()["session_token"]
+        keyring.set_password("nso-bridge", "session_token", sess)
+        return sess
+
     
     def get_service_token(self, session_token: str):
         headers = {
