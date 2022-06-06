@@ -1,134 +1,95 @@
-import re
-import os
-import sys
-import base64
-import hashlib
+import time
+import uuid
 import requests
 
-from bs4 import BeautifulSoup
+from app.flapg import FlapgAPI
 
 
-class NintendoSwitchAccount:
-    def __init__(self, version: str = "unknown", nso_app_version: str = "2.1.1"):
-        self.client_id = '71b963c1b7b6d119'
-        self.urlScheme = 'npf71b963c1b7b6d119'
-        self.version = version
-        self.nso_app_version = nso_app_version
-        self.session = requests.Session()
-
-        self.apple_app_store_url = "https://apps.apple.com/us/app/nintendo-switch-online/id1234806557"
-        self.nso_api_token_url = "https://accounts.nintendo.com/connect/1.0.0/api/token"
-        self.nso_authorize_url = "https://accounts.nintendo.com/connect/1.0.0/authorize"
-        self.nso_session_token_url = "https://accounts.nintendo.com/connect/1.0.0/api/session_token"
-
-        self.state = base64.urlsafe_b64encode(os.urandom(36))
-        self.verify = base64.urlsafe_b64encode(os.urandom(32))
-        self.authHash = hashlib.sha256()
-        self.authHash.update(self.verify.replace(b'=', b''))
-        self.authCodeChallenge = base64.urlsafe_b64encode(self.authHash.digest())
-    
-    def get_nso_app_version(self):
-        try:
-            page = requests.get(self.apple_app_store_url, headers={
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36'
-            })
-            soup = BeautifulSoup(page.text, "html.parser")
-            elt = soup.find("p", {"class": "whats-new__latest__version"})
-            ver = elt.get_text().replace("Version ","").strip()
-            return ver
-        except Exception:
-            return "2.1.1"
-
-    def payload_auth(self):
-        body = {
-            'state':                               self.state,
-            'redirect_uri':                        'npf%s://auth' % self.client_id,
-            'client_id':                           self.client_id,
-            'scope':                               'openid user user.birthday user.mii user.screenName',
-            'response_type':                       'session_token_code',
-            'session_token_code_challenge':         self.authCodeChallenge.replace(b'=', b''),
-            'session_token_code_challenge_method': 'S256',
-            'theme':                               'login_form',
-        }
-        return body
-
-    def session_token_payload(self, session_token_code, auth_code_verifier):
-        body = {
-            'client_id':                   self.client_id,
-            'session_token_code':          session_token_code,
-            'session_token_code_verifier': auth_code_verifier.replace(b"=", b"")
-        }
-        return body
-    
-    def service_token_payload(self, session_token):
-        body = {
-            'client_id': self.client_id,
-            'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer-session-token',
-            'session_token': session_token
-        }
-        return body
-
-    def nso_login(self):
-        resp = self.session.get(url=self.nso_authorize_url, headers={
-            'Accept-Encoding': 'gzip',
-            'User-Agent': 'OnlineLounge/%s NASDKAPI Android' % self.version,
-        }, params=self.payload_auth())
-        if resp.status_code != 200:
-            raise Exception("Error: %s" % resp.status_code)
-        print("URL: " + str(resp.history[0].url))
-        while True:
-            try:
-                use_account_url = input("")
-                if use_account_url == "skip":
-                    return "skip"
-                tokenPattern = re.compile(r'(eyJhbGciOiJIUzI1NiJ9\.[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*)')
-                code = tokenPattern.findall(use_account_url)
-                return self.get_session_token(code[0], self.verify.replace(b'=', b''))
-            except KeyboardInterrupt:
-                print("\nExiting...")
-                sys.exit(1)
-            except AttributeError:
-                print("\nInvalid URL")
-                sys.exit(1)
-            except KeyError:
-                print("\nThe URL has expired.")
-                sys.exit(1)
-            except Exception:
-                print("\nUnknown error")
-                sys.exit(1)
-        
-    def get_session_token(self, session_token_code, auth_code_verifier):
-        resp = self.session.post(
-            self.nso_session_token_url, 
-            headers={
-            'Accept-Language': 'en-US',
-            'Accept':          'application/json',
-            'Content-Type':    'application/x-www-form-urlencoded',
-            'Content-Length':  '540',
-            'Host':            'accounts.nintendo.com',
-            'Connection':      'Keep-Alive',
-        }, 
-            data=self.session_token_payload(
-                session_token_code, 
-                auth_code_verifier
-            )
-        )
-        if resp.status_code != 200:
-            raise Exception("Error: %s" % resp.status_code)
-        return resp.json()["session_token"]
-    
-    def get_service_token(self, session_token: str):
-        headers = {
-            "User-Agent": "Coral/2.0.0 (com.nintendo.znca; build:1489; iOS 15.3.1) Alamofire/5.4.4",
+class NintendoSwitchOnlineLogin:
+    def __init__(self, nso_app_version: str, user_info: dict, user_lang: str, access_token, guid):
+        self.headers = {
+            'Host': 'api-lp1.znc.srv.nintendo.net',
+            'Accept-Language': user_lang,
+            'User-Agent': 'com.nintendo.znca/' + nso_app_version + ' (Android/12.1.2)',
             'Accept': 'application/json',
-            'Accept-Language': "en-US",
-            'Accept-Encoding': 'gzip, deflate',
+            'X-ProductVersion': nso_app_version,
+            'Content-Type': 'application/json; charset=utf-8',
+            'Connection': 'Keep-Alive',
+            'Authorization': 'Bearer',
+            'X-Platform': 'Android',
+            'Accept-Encoding': 'gzip'
         }
-        resp = self.session.post(
-            self.nso_api_token_url,
-            headers=headers,
-            data=self.service_token_payload(session_token)
+        self.url = 'https://api-lp1.znc.srv.nintendo.net/v3/Account/Login'
+        self.timestamp = int(time.time())
+        self.guid = guid
+        self.user_info = user_info
+        self.access_token = access_token
+        self.flapg = FlapgAPI(self.access_token, self.timestamp, self.guid).get()
+        self.account = None
+
+        self.body = {
+            'parameter': {
+                'f': self.flapg['f'],
+                'naIdToken': self.flapg['p1'],
+                'timestamp': self.flapg['p2'],
+                'requestId': self.flapg['p3'],
+                'naCountry': self.user_info['country'],
+                'naBirthday': self.user_info['birthday'],
+                'language': self.user_info['language'],
+            },
+        }
+
+    def to_account(self):
+        response = requests.post(
+            url=self.url, headers=self.headers, json=self.body
         )
-        if resp.status_code != 200:
-            raise Exception("Error: %s" % resp.status_code)
-        return resp.json()
+        if response.status_code != 200:
+            raise Exception(
+                f"Error: {response.status_code}"
+            )
+        self.account = response.json()
+        return self.account
+
+
+class NintendoSwitchOnlineAPI:
+    def __init__(self, nso_app_version: str, user_info: dict, service_token: str, user_lang: str = "en-US"):
+        self.nso_app_version = nso_app_version
+        self.url = 'https://api-lp1.znc.srv.nintendo.net'
+        self.headers = {
+            'X-ProductVersion': nso_app_version,
+            'X-Platform': 'iOS',
+            'User-Agent': 'Coral/2.0.0 (com.nintendo.znca; build:1489; iOS 15.3.1) Alamofire/5.4.4',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
+            'Host': 'api-lp1.znc.srv.nintendo.net',
+            'Connection': 'Keep-Alive',
+            'Accept-Encoding': 'gzip',
+        }
+
+        self.user_lang = user_lang
+        self.user_info = user_info
+        self.token = service_token
+        self.id_token = self.token['id_token']
+        self.access_token = self.token['access_token']
+        self.guid = str(uuid.uuid4())
+
+        self.login = {
+            'login': None,
+            'time': 0
+        }
+
+    def sync_login(self):
+        login = NintendoSwitchOnlineLogin(
+            self.nso_app_version,
+            self.user_info,
+            self.user_lang,
+            self.access_token,
+            self.guid
+        )
+        login.to_account()
+
+        self.headers['Authorization'] = f"Bearer {login.account['result']['webApiServerCredential']['accessToken']}"
+        self.login = {
+            'login': login,
+            'time': time.time(),
+        }
