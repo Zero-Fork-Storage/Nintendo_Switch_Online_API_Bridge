@@ -1,6 +1,4 @@
 import base64
-from cgitb import reset
-import re
 import time
 import uuid
 import requests
