@@ -28,5 +28,4 @@ class FlapgAPI(S2SApi):
             raise Exception(
                 f"Flapg API returned status code {response.status_code}"
             )
-        print(response.json())
         return response.json()['result']
