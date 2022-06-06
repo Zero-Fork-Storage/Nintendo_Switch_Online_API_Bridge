@@ -1,8 +1,5 @@
-import time
 import json
 import keyring
-import base64
-import pickle
 from app.nsa import NintendoSwitchAccount
 from app.nso import NintendoSwitchOnlineAPI
 
