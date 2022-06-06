@@ -1,5 +1,3 @@
-from re import U
-from tkinter import W
 import keyring
 import base64
 import pickle
