@@ -28,7 +28,7 @@ setup(
     author='zeroday0619',
     author_email='zeroday0619_dev@outlook.com',
     url='https://github.com/zeroday0619/Nintendo_Switch_Online_API_Bridge',
-    packages=find_packages(exclude=['.vscode', '.idea', '.github']),
+    packages=find_packages(exclude=['.vscode', '.idea', '.github', 'tests']),
     install_requires=[
         "requests", "keyring", "bs4"
     ],
