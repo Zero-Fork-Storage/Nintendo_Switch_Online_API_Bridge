@@ -5,6 +5,7 @@ import requests
 import keyring
 import pickle
 
+from typing import Literal
 from nso_bridge.flapg import FlapgAPI
 from nso_bridge.nsa import NintendoSwitchAccount
 
@@ -71,6 +72,10 @@ class NintendoSwitchOnlineAPI:
         }
 
         self.user_lang = user_lang
+
+        if session_token is None:
+            session_token = self.nsa.nso_login(self.nsa.m_input)
+
         self.token = self.nsa.get_service_token(session_token=session_token)
         self.id_token = self.token.get('id_token')
         self.access_token = self.token.get('access_token')
@@ -111,9 +116,9 @@ class NintendoSwitchOnlineAPI:
             self.login = pickle.loads(base64.b64decode(wasc_access_token.encode('utf-8')))
             self.headers['Authorization'] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
         
-        if time.time() - int(wasc_time[0]) < 7170:
+        if time.time() - int(float(wasc_time)) < 7170:
             return
-        
+                    
         login = NintendoSwitchOnlineLogin(
             self.nso_app_version,
             self.user_info,
