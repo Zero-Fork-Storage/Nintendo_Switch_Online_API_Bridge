@@ -90,6 +90,7 @@ class NintendoSwitchOnlineAPI:
         }
     
     def getSelf(self):
+        """Get information of My Nintendo Switch Account."""
         resp = requests.post(url=self.url + "/v3/User/ShowSelf", headers=self.headers)
         if resp.status_code != 200:
             raise Exception(
@@ -98,6 +99,7 @@ class NintendoSwitchOnlineAPI:
         return resp.json()
     
     def getFriends(self):
+        """Get information of friends registered to Nintendo Switch account."""
         resp = requests.post(url=self.url + "/v3/Friend/List", headers=self.headers)
         if resp.status_code != 200:
             raise Exception(
