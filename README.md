@@ -4,7 +4,7 @@ NINTENDO SWITCH ONLINE API BRIDGE
 
 ## What is it?
 
-Nintendo Switch Online API Bridge is a simple wrapper for the Nintendo Switch Online API. It allows you to easily access the API and get the data you need.
+Nintendo Switch Online API Bridge is a simple wrapper. It allows you to easily access the API and get the data you need.
 
 ## Installation
 
