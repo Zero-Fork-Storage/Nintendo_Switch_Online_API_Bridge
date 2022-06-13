@@ -9,6 +9,10 @@ Nintendo Switch Online API Bridge is a simple wrapper. It allows you to easily a
 ## Installation
 
 ```bash
+pip install nso-bridge
+```
+
+```bash
 pip install git+https://github.com/zeroday0619/Nintendo_Switch_Online_API_Bridge.git
 ```
 
