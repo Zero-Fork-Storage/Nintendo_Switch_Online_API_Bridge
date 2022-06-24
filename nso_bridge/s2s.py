@@ -16,7 +16,7 @@ class S2SApi:
             "timestamp": self.timestamp,
         }
 
-        self.s2s_api_url = "https://elifessler.com/s2s/api/gen2"
+        self.s2s_api_url = "https://selfhost.zeroday0619.dev/s2s/api/gen2"
 
     def get_hash(self):
         response = requests.post(
