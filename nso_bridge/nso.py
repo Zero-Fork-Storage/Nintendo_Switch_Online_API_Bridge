@@ -4,13 +4,46 @@ import uuid
 import requests
 import keyring
 import pickle
-
+import json
+from nso_bridge import __version__
 from typing import Literal
-from nso_bridge.flapg import FlapgAPI
 from nso_bridge.nsa import NintendoSwitchAccount
 
+
+class mAPI:
+    def __init__(self, id_token: str, step: int):
+        self.id_token = id_token
+        self.step = step
+
+        self.api_header = {
+            "User-Agent": f"Nintendo_Switch_Online_Bridge/{__version__}",
+            'Content-Type': 'application/json; charset=utf-8'
+        }
+        self.api_body = {
+            'token':       id_token,
+			'hashMethod':  step
+        }
+        self.api_url = "https://api.imink.app/f"
+    
+    def get_response(self):
+        api_resp = requests.post(
+            url=self.api_url,
+            data=json.dumps(self.api_body),
+            headers=self.api_header
+        )
+        if api_resp.status_code != 200:
+            raise Exception(f"{api_resp.json()}")
+        rs = api_resp.json()
+        f = rs["f"]
+        uuid = rs["request_id"]
+        timestamp = rs["timestamp"]
+        return {
+            "f": f,
+            "uuid": uuid,
+            "timestamp": timestamp
+        }
 class NintendoSwitchOnlineLogin:
-    def __init__(self, nso_app_version: str, user_info: dict, user_lang: str, access_token, guid):
+    def __init__(self, nso_app_version: str, user_info: dict, user_lang: str, access_token, guid, id_token):
         self.headers = {
             'Host': 'api-lp1.znc.srv.nintendo.net',
             'Accept-Language': user_lang,
@@ -28,15 +61,16 @@ class NintendoSwitchOnlineLogin:
         self.guid = guid
         self.user_info = user_info
         self.access_token = access_token
-        self.flapg = FlapgAPI(self.access_token, self.timestamp, self.guid).get()
+        self.id_token = id_token
+        self.flapg = mAPI(self.id_token, 1).get_response()
         self.account = None
 
         self.body = {
             'parameter': {
                 'f': self.flapg['f'],
-                'naIdToken': self.flapg['p1'],
-                'timestamp': self.flapg['p2'],
-                'requestId': self.flapg['p3'],
+                'naIdToken': self.access_token,
+                'timestamp': self.flapg['timestamp'],
+                'requestId': self.flapg['uuid'],
                 'naCountry': self.user_info['country'],
                 'naBirthday': self.user_info['birthday'],
                 'language': self.user_info['language'],
@@ -126,7 +160,8 @@ class NintendoSwitchOnlineAPI:
             self.user_info,
             self.user_lang,
             self.access_token,
-            self.guid
+            self.guid,
+            self.id_token
         )
         login.to_account()
 
@@ -134,6 +169,7 @@ class NintendoSwitchOnlineAPI:
             'login': login,
             'time': time.time(),
         }
+        print(self.login['login'].account)
         self.headers['Authorization'] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
         keyring.set_password("nso-bridge", "login", base64.b64encode(pickle.dumps(self.login)).decode("utf-8"))
         keyring.set_password("nso-bridge", "wasc_access_token", self.login['login'].account['result']['webApiServerCredential']['accessToken'])
