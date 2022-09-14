@@ -68,7 +68,7 @@ class NintendoSwitchOnlineLogin:
         self.body = {
             'parameter': {
                 'f': self.flapg['f'],
-                'naIdToken': self.access_token,
+                'naIdToken': self.id_token,
                 'timestamp': self.flapg['timestamp'],
                 'requestId': self.flapg['uuid'],
                 'naCountry': self.user_info['country'],
@@ -147,7 +147,6 @@ class NintendoSwitchOnlineAPI:
         
         if wasc_time is None:
             wasc_time = 0.0
-        
         if wasc_access_token is not None:
             self.login = pickle.loads(base64.b64decode(wasc_access_token.encode('utf-8')))
             self.headers['Authorization'] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
