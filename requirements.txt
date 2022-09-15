@@ -1,3 +1,0 @@
-requests
-keyring
-bs4
