@@ -1,6 +1,6 @@
 # Nintendo Switch Online API Bridge
 
-NINTENDO SWITCH ONLINE API BRIDGE
+Nintendo Switch Online API bridge (for Nintendo Switch Online API wrapper)
 
 ## What is it?
 
@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 app = NintendoSwitchAccount()
 
 # override the nso_app_version
-app.nso_app_version = "2.1.1"
+app.nso_app_version = app.get_nso_app_version()
 session_token = keyring.get_password("nso-bridge", "session_token")
 
 
@@ -67,7 +67,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 app = NintendoSwitchAccount()
 
 # override the nso_app_version
-app.nso_app_version = "2.1.1"
+app.nso_app_version = app.get_nso_app_version()
 session_token = keyring.get_password("nso-bridge", "session_token")
 
 

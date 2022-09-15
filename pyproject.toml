@@ -1,0 +1,37 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "nso-bridge"
+authors = [
+    {name = "zeroday0619", email = "zeroday0619_dev@outlook.com"}
+]
+readme = "README.md"
+description = "Nintendo Switch Online API bridge (for Nintendo Switch Online API wrapper)"
+license = {file = "LICENSE"}
+keywords = [
+    "Nintendo", 
+    "Nintendo Switch", 
+    "Nintendo Switch Online",
+    "Nintendo Switch Online API",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License"
+]
+dynamic = ["version"]
+dependencies = [
+    "requests >= 2.28.1",
+    "keyring >= 23.9.1",
+    "beautifulsoup4 >= 4.11.1"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest >= 7.1.3",
+    "pytest-cov >= 3.0.0"
+]
+
+[project.urls]
+Home = "https://github.com/zeroday0619/Nintendo_Switch_Online_API_Bridge"
+
