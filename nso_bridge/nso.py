@@ -165,7 +165,6 @@ class NintendoSwitchOnlineAPI:
             "login": login,
             "time": time.time(),
         }
-        print(self.login["login"].account)
         self.headers[
             "Authorization"
         ] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
