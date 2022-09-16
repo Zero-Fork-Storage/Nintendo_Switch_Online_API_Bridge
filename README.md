@@ -45,7 +45,7 @@ nso_res = NintendoSwitchOnlineAPI(
     session_token=session_token,
 )
 nso_res.sync_login()
-print(json.dumps(nso_res.getSelf(), indent=4, ensure_ascii=False))
+print(json.dumps(nso_res.getCurrentUser(), indent=4, ensure_ascii=False))
 
 ```
 

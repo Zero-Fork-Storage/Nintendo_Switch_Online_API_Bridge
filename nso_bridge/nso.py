@@ -30,6 +30,7 @@ class mAPI:
         if api_resp.status_code != 200:
             raise Exception(f"{api_resp.json()}")
         rs = api_resp.json()
+        print(rs)
         f = rs["f"]
         uuid = rs["request_id"]
         timestamp = rs["timestamp"]
@@ -120,9 +121,11 @@ class NintendoSwitchOnlineAPI:
 
         self.login = {"login": None, "time": 0}
 
-    def getSelf(self):
-        """Get information of My Nintendo Switch Account."""
-        resp = requests.post(url=self.url + "/v3/User/ShowSelf", headers=self.headers)
+    def getAnnouncements(self):
+        """Get information of announcements."""
+        resp = requests.post(
+            url=self.url + "/v3/Announcement/List", headers=self.headers
+        )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
@@ -130,6 +133,63 @@ class NintendoSwitchOnlineAPI:
     def getFriends(self):
         """Get information of friends registered to Nintendo Switch account."""
         resp = requests.post(url=self.url + "/v3/Friend/List", headers=self.headers)
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getWebServices(self):
+        """Get information of web services registered to Nintendo Switch account."""
+        resp = requests.post(
+            url=self.url + "/v1/Game/ListWebServices", headers=self.headers
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getActiveEvent(self):
+        """Get information of active events."""
+        resp = requests.post(
+            url=self.url + "/v1/Event/GetActiveEvent", headers=self.headers
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getEvent(self):
+        """Get information of events."""
+        resp = requests.post(url=self.url + "/v1/Event/Show", headers=self.headers)
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getUser(self):
+        """Get information of user."""
+        resp = requests.post(url=self.url + "/v1/User/Show", headers=self.headers)
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getCurrentUser(self):
+        """Get information of My Nintendo Switch Account."""
+        resp = requests.post(url=self.url + "/v3/User/ShowSelf", headers=self.headers)
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getFriendCodeUrl(self):
+        """Get information of friend code URL."""
+        resp = requests.post(
+            url=self.url + "/v3/Friend/CreateFriendCodeUrl", headers=self.headers
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getCurrentUserPermissions(self):
+        """Get information of current user permissions."""
+        resp = requests.post(
+            url=self.url + "/v3/User/Permissions/ShowSelf", headers=self.headers
+        )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
