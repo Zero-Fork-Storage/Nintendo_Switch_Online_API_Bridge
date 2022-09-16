@@ -155,16 +155,22 @@ class NintendoSwitchOnlineAPI:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
 
-    def getEvent(self):
+    def getEvent(self, user_id: str):
         """Get information of events."""
-        resp = requests.post(url=self.url + "/v1/Event/Show", headers=self.headers)
+        resp = requests.post(
+            url=self.url + "/v1/Event/Show",
+            headers=self.headers,
+            params={"id": user_id},
+        )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
 
-    def getUser(self):
+    def getUser(self, user_id: str):
         """Get information of user."""
-        resp = requests.post(url=self.url + "/v1/User/Show", headers=self.headers)
+        resp = requests.post(
+            url=self.url + "/v1/User/Show", headers=self.headers, params={"id": user_id}
+        )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
