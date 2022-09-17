@@ -8,7 +8,9 @@ import keyring
 import requests
 
 from nso_bridge import __version__
+from nso_bridge.metadata import ZNCA_PLATFORM, ZNCA_USER_AGENT, ZNCA_VERSION
 from nso_bridge.nsa import NintendoSwitchAccount
+from nso_bridge.utils import check_friend_code_hash, is_friend_code
 
 
 class mAPI:
@@ -30,7 +32,6 @@ class mAPI:
         if api_resp.status_code != 200:
             raise Exception(f"{api_resp.json()}")
         rs = api_resp.json()
-        print(rs)
         f = rs["f"]
         uuid = rs["request_id"]
         timestamp = rs["timestamp"]
@@ -40,7 +41,6 @@ class mAPI:
 class NintendoSwitchOnlineLogin:
     def __init__(
         self,
-        nso_app_version: str,
         user_info: dict,
         user_lang: str,
         access_token,
@@ -48,16 +48,13 @@ class NintendoSwitchOnlineLogin:
         id_token,
     ):
         self.headers = {
-            "Host": "api-lp1.znc.srv.nintendo.net",
+            "X-Platform": ZNCA_PLATFORM,
+            "X-ProductVersion": ZNCA_VERSION,
             "Accept-Language": user_lang,
-            "User-Agent": "com.nintendo.znca/" + nso_app_version + " (Android/12.1.2)",
-            "Accept": "application/json",
-            "X-ProductVersion": nso_app_version,
-            "Content-Type": "application/json; charset=utf-8",
-            "Connection": "Keep-Alive",
+            "User-Agent": "com.nintendo.znca/" + ZNCA_VERSION + " (Android/12.1.2)",
             "Authorization": "Bearer",
-            "X-Platform": "Android",
-            "Accept-Encoding": "gzip",
+            "Content-Type": "application/json; charset=utf-8",
+            "Host": "api-lp1.znc.srv.nintendo.net",
         }
         self.url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
         self.timestamp = int(time.time())
@@ -65,7 +62,7 @@ class NintendoSwitchOnlineLogin:
         self.user_info = user_info
         self.access_token = access_token
         self.id_token = id_token
-        self.flapg = mAPI(self.id_token, 1).get_response()
+        self.flapg = self.mFlag()
         self.account = None
 
         self.body = {
@@ -80,6 +77,9 @@ class NintendoSwitchOnlineLogin:
             },
         }
 
+    def mFlag(self):
+        return mAPI(self.id_token, 1).get_response()
+
     def to_account(self):
         response = requests.post(url=self.url, headers=self.headers, json=self.body)
         if response.status_code != 200:
@@ -90,20 +90,20 @@ class NintendoSwitchOnlineLogin:
 
 class NintendoSwitchOnlineAPI:
     def __init__(
-        self, nso_app_version: str, session_token: str, user_lang: str = "en-US"
+        self,
+        session_token: str,
+        user_lang: str = "en-US",
+        nso_app_version: str | None = None,
     ):
         self.nsa = NintendoSwitchAccount()
-        self.nso_app_version = nso_app_version or "2.1.1"
+        self.nso_app_version = ZNCA_VERSION or nso_app_version
         self.url = "https://api-lp1.znc.srv.nintendo.net"
         self.headers = {
-            "X-ProductVersion": nso_app_version,
-            "X-Platform": "iOS",
-            "User-Agent": "Coral/2.0.0 (com.nintendo.znca; build:1489; iOS 15.3.1) Alamofire/5.4.4",
-            "Accept": "application/json",
+            "X-Platform": ZNCA_PLATFORM,
+            "X-ProductVersion": ZNCA_VERSION or self.nso_app_version,
+            "User-Agent": ZNCA_USER_AGENT,
             "Content-Type": "application/json; charset=utf-8",
             "Host": "api-lp1.znc.srv.nintendo.net",
-            "Connection": "Keep-Alive",
-            "Accept-Encoding": "gzip",
         }
 
         self.user_lang = user_lang
@@ -114,29 +114,27 @@ class NintendoSwitchOnlineAPI:
         self.token = self.nsa.get_service_token(session_token=session_token)
         self.id_token = self.token.get("id_token")
         self.access_token = self.token.get("access_token")
-
         self.guid = str(uuid.uuid4())
-
         self.user_info = self.nsa.get_user_info(self.access_token)
-
         self.login = {"login": None, "time": 0}
+        self.NSOL = NintendoSwitchOnlineLogin(
+            self.user_info,
+            self.user_lang,
+            self.access_token,
+            self.guid,
+            self.id_token,
+        )
 
     def getAnnouncements(self):
         """Get information of announcements."""
         resp = requests.post(
-            url=self.url + "/v3/Announcement/List", headers=self.headers
+            url=self.url + "/v1/Announcement/List", headers=self.headers
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
 
-    def getFriends(self):
-        """Get information of friends registered to Nintendo Switch account."""
-        resp = requests.post(url=self.url + "/v3/Friend/List", headers=self.headers)
-        if resp.status_code != 200:
-            raise Exception(f"Error: {resp.status_code}")
-        return resp.json()
-
+    # Web Service API
     def getWebServices(self):
         """Get information of web services registered to Nintendo Switch account."""
         resp = requests.post(
@@ -145,6 +143,24 @@ class NintendoSwitchOnlineAPI:
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
+
+    # def getGameWebServiceToken(self, game_id: str):
+    #   resp = requests.post(
+    #        url=self.url + "/v2/Game/GetWebServiceToken",
+    #        json={
+    #            "parameter": {
+    #                "id": game_id,
+    #                "registrationToken": "",
+    #                "f": self.NSOL.flapg["f"],
+    #                "requestId": self.NSOL.flapg["uuid"],
+    #                "timestamp": self.NSOL.flapg["timestamp"],
+    #            }
+    #        },
+    #        headers=self.headers
+    #    )
+    #    if resp.status_code != 200:
+    #        raise Exception(f"Error: {resp.status_code}")
+    #    return resp.json()
 
     def getActiveEvent(self):
         """Get information of active events."""
@@ -157,12 +173,10 @@ class NintendoSwitchOnlineAPI:
 
     def getEvent(self, user_id: int):
         """Get information of events."""
-        data = json.dumps({"parameter": {"id": user_id}})
-
         resp = requests.post(
             url=self.url + "/v1/Event/Show",
             headers=self.headers,
-            data=data,
+            json={"parameter": {"id": user_id}},
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -170,10 +184,10 @@ class NintendoSwitchOnlineAPI:
 
     def getUser(self, user_id: int):
         """Get information of user."""
-        data = json.dumps({"parameter": {"id": user_id}})
-
         resp = requests.post(
-            url=self.url + "/v1/User/Show", headers=self.headers, data=data
+            url=self.url + "/v3/User/Show",
+            headers=self.headers,
+            json={"parameter": {"id": user_id}},
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -182,6 +196,22 @@ class NintendoSwitchOnlineAPI:
     def getCurrentUser(self):
         """Get information of My Nintendo Switch Account."""
         resp = requests.post(url=self.url + "/v3/User/ShowSelf", headers=self.headers)
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getCurrentUserPermissions(self):
+        """Get information of current user permissions."""
+        resp = requests.post(
+            url=self.url + "/v3/User/Permissions/ShowSelf", headers=self.headers
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getFriends(self):
+        """Get information of friends registered to Nintendo Switch account."""
+        resp = requests.post(url=self.url + "/v3/Friend/List", headers=self.headers)
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
@@ -195,10 +225,86 @@ class NintendoSwitchOnlineAPI:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
 
-    def getCurrentUserPermissions(self):
-        """Get information of current user permissions."""
+    def getUserByFriendCode(self, friend_code: str, _hash: str | None = None):
+        if not is_friend_code(friend_code):
+            raise Exception("Invalid friend code")
+        if hash is not None:
+            if not check_friend_code_hash(_hash):
+                raise Exception("Invalid hash")
+            else:
+                resp_hash = requests.post(
+                    url=self.url + "/v3/Friend/GetUserByFriendCodeHash",
+                    headers=self.headers,
+                    json={
+                        "parameter": {
+                            "friendCode": friend_code,
+                            "friendCodeHash": _hash,
+                        }
+                    },
+                )
+                if resp_hash.status_code != 200:
+                    raise Exception(f"Error: {resp_hash.status_code}")
+        else:
+            resp = requests.post(
+                url=self.url + "/v3/Friend/GetUserByFriendCode",
+                headers=self.headers,
+                json={
+                    "parameter": {
+                        "friendCode": friend_code,
+                    }
+                },
+            )
+            if resp.status_code != 200:
+                raise Exception(f"Error: {resp.status_code}")
+            return resp.json()
+
+    def sendFriendRequest(self, nsa_id: int):
+        """Send friend request."""
         resp = requests.post(
-            url=self.url + "/v3/User/Permissions/ShowSelf", headers=self.headers
+            url=self.url + "/v3/FriendRequest/Create",
+            headers=self.headers,
+            json={"parameter": {"nsaId": nsa_id}},
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def addFavouriteFriend(self, nsa_id: int):
+        """Add favourite friend."""
+        resp = requests.post(
+            url=self.url + "/v3/Friend/Favorite/Create",
+            headers=self.headers,
+            json={"parameter": {"nsaId": nsa_id}},
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def removeFavouriteFriend(self, nsa_id: int):
+        """Remove favourite friend."""
+        resp = requests.post(
+            url=self.url + "/v3/Friend/Favorite/Delete",
+            headers=self.headers,
+            json={"parameter": {"nsaId": nsa_id}},
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
+
+    def getToken(self):
+        parameters = {
+            "parameter": {
+                "naBirthday": self.user_info["birthday"],
+                "timestamp": self.NSOL.flapg["timestamp"],
+                "f": self.NSOL.flapg["f"],
+                "requestId": self.NSOL.flapg["uuid"],
+                "naIdToken": self.token["id_token"],
+            }
+        }
+        resp = requests.post(
+            url=self.url + "/v3/Account/GetToken",
+            headers=self.headers,
+            json=parameters,
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -216,28 +322,19 @@ class NintendoSwitchOnlineAPI:
             )
             self.headers[
                 "Authorization"
-            ] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
+            ] = f"Bearer {self.login['login']['result']['webApiServerCredential']['accessToken']}"
 
         if time.time() - int(float(wasc_time)) < 7170:
             return
 
-        login = NintendoSwitchOnlineLogin(
-            self.nso_app_version,
-            self.user_info,
-            self.user_lang,
-            self.access_token,
-            self.guid,
-            self.id_token,
-        )
-        login.to_account()
-
+        login = self.NSOL.to_account()
         self.login = {
             "login": login,
             "time": time.time(),
         }
         self.headers[
             "Authorization"
-        ] = f"Bearer {self.login['login'].account['result']['webApiServerCredential']['accessToken']}"
+        ] = f"Bearer {self.login['login']['result']['webApiServerCredential']['accessToken']}"
         keyring.set_password(
             "nso-bridge",
             "login",
@@ -246,8 +343,6 @@ class NintendoSwitchOnlineAPI:
         keyring.set_password(
             "nso-bridge",
             "wasc_access_token",
-            self.login["login"].account["result"]["webApiServerCredential"][
-                "accessToken"
-            ],
+            self.login["login"]["result"]["webApiServerCredential"]["accessToken"],
         )
         keyring.set_password("nso-bridge", "wasc_time", str(self.login["time"]))
