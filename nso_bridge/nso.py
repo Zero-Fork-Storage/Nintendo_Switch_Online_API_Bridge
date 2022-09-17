@@ -3,6 +3,7 @@ import json
 import pickle
 import time
 import uuid
+from enum import Enum
 
 import keyring
 import requests
@@ -11,6 +12,11 @@ from nso_bridge import __version__
 from nso_bridge.metadata import ZNCA_PLATFORM, ZNCA_USER_AGENT, ZNCA_VERSION
 from nso_bridge.nsa import NintendoSwitchAccount
 from nso_bridge.utils import check_friend_code_hash, is_friend_code
+
+
+class IminkType(Enum):
+    NSO = 1
+    APP = 2
 
 
 class mAPI:
@@ -22,7 +28,7 @@ class mAPI:
             "User-Agent": f"Nintendo_Switch_Online_Bridge/{__version__}",
             "Content-Type": "application/json; charset=utf-8",
         }
-        self.api_body = {"token": id_token, "hashMethod": step}
+        self.api_body = {"token": id_token, "hashMethod": step.value}
         self.api_url = "https://api.imink.app/f"
 
     def get_response(self):
@@ -75,10 +81,11 @@ class NintendoSwitchOnlineLogin:
                 "naBirthday": self.user_info["birthday"],
                 "language": self.user_info["language"],
             },
+            "requestId": str(uuid.uuid4()),
         }
 
-    def mFlag(self):
-        return mAPI(self.id_token, 1).get_response()
+    def mFlag(self, step=IminkType.NSO):
+        return mAPI(id_token=self.id_token, step=step).get_response()
 
     def to_account(self):
         response = requests.post(url=self.url, headers=self.headers, json=self.body)
@@ -144,23 +151,26 @@ class NintendoSwitchOnlineAPI:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
 
-    # def getGameWebServiceToken(self, game_id: str):
-    #   resp = requests.post(
-    #        url=self.url + "/v2/Game/GetWebServiceToken",
-    #        json={
-    #            "parameter": {
-    #                "id": game_id,
-    #                "registrationToken": "",
-    #                "f": self.NSOL.flapg["f"],
-    #                "requestId": self.NSOL.flapg["uuid"],
-    #                "timestamp": self.NSOL.flapg["timestamp"],
-    #            }
-    #        },
-    #        headers=self.headers
-    #    )
-    #    if resp.status_code != 200:
-    #        raise Exception(f"Error: {resp.status_code}")
-    #    return resp.json()
+    def getGameWebServiceToken(self, game_id: int):
+        token = self.login["login"]["result"]["webApiServerCredential"]["accessToken"]
+        flagp = mAPI(id_token=token, step=IminkType.APP).get_response()
+        resp = requests.post(
+            url=self.url + "/v2/Game/GetWebServiceToken",
+            json={
+                "parameter": {
+                    "id": game_id,
+                    "registrationToken": token,
+                    "f": flagp["f"],
+                    "requestId": flagp["uuid"],
+                    "timestamp": flagp["timestamp"],
+                },
+                "requestId": str(uuid.uuid4()),
+            },
+            headers=self.headers,
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Error: {resp.status_code}")
+        return resp.json()
 
     def getActiveEvent(self):
         """Get information of active events."""
@@ -176,7 +186,10 @@ class NintendoSwitchOnlineAPI:
         resp = requests.post(
             url=self.url + "/v1/Event/Show",
             headers=self.headers,
-            json={"parameter": {"id": user_id}},
+            json={
+                "parameter": {"id": user_id},
+                "requestId": str(uuid.uuid4()),
+            },
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -187,7 +200,10 @@ class NintendoSwitchOnlineAPI:
         resp = requests.post(
             url=self.url + "/v3/User/Show",
             headers=self.headers,
-            json={"parameter": {"id": user_id}},
+            json={
+                "parameter": {"id": user_id},
+                "requestId": str(uuid.uuid4()),
+            },
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -239,7 +255,8 @@ class NintendoSwitchOnlineAPI:
                         "parameter": {
                             "friendCode": friend_code,
                             "friendCodeHash": _hash,
-                        }
+                        },
+                        "requestId": str(uuid.uuid4()),
                     },
                 )
                 if resp_hash.status_code != 200:
@@ -251,7 +268,8 @@ class NintendoSwitchOnlineAPI:
                 json={
                     "parameter": {
                         "friendCode": friend_code,
-                    }
+                    },
+                    "requestId": str(uuid.uuid4()),
                 },
             )
             if resp.status_code != 200:
@@ -263,7 +281,10 @@ class NintendoSwitchOnlineAPI:
         resp = requests.post(
             url=self.url + "/v3/FriendRequest/Create",
             headers=self.headers,
-            json={"parameter": {"nsaId": nsa_id}},
+            json={
+                "parameter": {"nsaId": nsa_id},
+                "requestId": str(uuid.uuid4()),
+            },
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -274,7 +295,10 @@ class NintendoSwitchOnlineAPI:
         resp = requests.post(
             url=self.url + "/v3/Friend/Favorite/Create",
             headers=self.headers,
-            json={"parameter": {"nsaId": nsa_id}},
+            json={
+                "parameter": {"nsaId": nsa_id},
+                "requestId": str(uuid.uuid4()),
+            },
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -285,7 +309,10 @@ class NintendoSwitchOnlineAPI:
         resp = requests.post(
             url=self.url + "/v3/Friend/Favorite/Delete",
             headers=self.headers,
-            json={"parameter": {"nsaId": nsa_id}},
+            json={
+                "parameter": {"nsaId": nsa_id},
+                "requestId": str(uuid.uuid4()),
+            },
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
@@ -299,7 +326,8 @@ class NintendoSwitchOnlineAPI:
                 "f": self.NSOL.flapg["f"],
                 "requestId": self.NSOL.flapg["uuid"],
                 "naIdToken": self.token["id_token"],
-            }
+            },
+            "requestId": str(uuid.uuid4()),
         }
         resp = requests.post(
             url=self.url + "/v3/Account/GetToken",
@@ -320,9 +348,10 @@ class NintendoSwitchOnlineAPI:
             self.login = pickle.loads(
                 base64.b64decode(wasc_access_token.encode("utf-8"))
             )
-            self.headers[
-                "Authorization"
-            ] = f"Bearer {self.login['login']['result']['webApiServerCredential']['accessToken']}"
+            self.access_token = self.login["login"]["result"]["webApiServerCredential"][
+                "accessToken"
+            ]
+            self.headers["Authorization"] = f"Bearer {self.access_token}"
 
         if time.time() - int(float(wasc_time)) < 7170:
             return
@@ -332,9 +361,10 @@ class NintendoSwitchOnlineAPI:
             "login": login,
             "time": time.time(),
         }
-        self.headers[
-            "Authorization"
-        ] = f"Bearer {self.login['login']['result']['webApiServerCredential']['accessToken']}"
+        self.access_token = self.login["login"]["result"]["webApiServerCredential"][
+            "accessToken"
+        ]
+        self.headers["Authorization"] = f"Bearer {self.access_token}"
         keyring.set_password(
             "nso-bridge",
             "login",
