@@ -10,6 +10,7 @@ import requests
 
 from nso_bridge import __version__
 from nso_bridge.metadata import ZNCA_PLATFORM, ZNCA_USER_AGENT, ZNCA_VERSION
+from nso_bridge.models import Imink
 from nso_bridge.nsa import NintendoSwitchAccount
 from nso_bridge.utils import check_friend_code_hash, is_friend_code
 
@@ -20,28 +21,25 @@ class IminkType(Enum):
 
 
 class mAPI:
-    def __init__(self, id_token: str, step: int):
-        self.id_token = id_token
+    def __init__(self, token: str, step: IminkType):
+        self.token = token
         self.step = step
 
         self.api_header = {
             "User-Agent": f"Nintendo_Switch_Online_Bridge/{__version__}",
             "Content-Type": "application/json; charset=utf-8",
         }
-        self.api_body = {"token": id_token, "hashMethod": step.value}
+        self.api_body = {"token": token, "hashMethod": step.value}
         self.api_url = "https://api.imink.app/f"
 
-    def get_response(self):
+    def get_response(self) -> Imink:
         api_resp = requests.post(
             url=self.api_url, data=json.dumps(self.api_body), headers=self.api_header
         )
         if api_resp.status_code != 200:
             raise Exception(f"{api_resp.json()}")
         rs = api_resp.json()
-        f = rs["f"]
-        uuid = rs["request_id"]
-        timestamp = rs["timestamp"]
-        return {"f": f, "uuid": uuid, "timestamp": timestamp}
+        return Imink(**rs)
 
 
 class NintendoSwitchOnlineLogin:
@@ -64,28 +62,26 @@ class NintendoSwitchOnlineLogin:
         }
         self.url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
         self.timestamp = int(time.time())
+
         self.guid = guid
         self.user_info = user_info
         self.access_token = access_token
         self.id_token = id_token
-        self.flapg = self.mFlag()
-        self.account = None
 
+        self._imink_nso = mAPI(token=self.id_token, step=IminkType.NSO).get_response()
+        self.account = None
         self.body = {
             "parameter": {
-                "f": self.flapg["f"],
+                "f": self._imink_nso.f,
                 "naIdToken": self.id_token,
-                "timestamp": self.flapg["timestamp"],
-                "requestId": self.flapg["uuid"],
+                "timestamp": self._imink_nso.timestamp,
+                "requestId": self._imink_nso.request_id,
                 "naCountry": self.user_info["country"],
                 "naBirthday": self.user_info["birthday"],
                 "language": self.user_info["language"],
             },
             "requestId": str(uuid.uuid4()),
         }
-
-    def mFlag(self, step=IminkType.NSO):
-        return mAPI(id_token=self.id_token, step=step).get_response()
 
     def to_account(self):
         response = requests.post(url=self.url, headers=self.headers, json=self.body)
@@ -132,6 +128,9 @@ class NintendoSwitchOnlineAPI:
             self.id_token,
         )
 
+    def imink_app(self):
+        return mAPI(token=self.access_token, step=IminkType.APP).get_response()
+
     def getAnnouncements(self):
         """Get information of announcements."""
         resp = requests.post(
@@ -152,17 +151,16 @@ class NintendoSwitchOnlineAPI:
         return resp.json()
 
     def getGameWebServiceToken(self, game_id: int):
-        token = self.login["login"]["result"]["webApiServerCredential"]["accessToken"]
-        flagp = mAPI(id_token=token, step=IminkType.APP).get_response()
+        _imink_app = self.imink_app()
         resp = requests.post(
             url=self.url + "/v2/Game/GetWebServiceToken",
             json={
                 "parameter": {
                     "id": game_id,
-                    "registrationToken": token,
-                    "f": flagp["f"],
-                    "requestId": flagp["uuid"],
-                    "timestamp": flagp["timestamp"],
+                    "f": _imink_app.f,
+                    "registrationToken": self.access_token,
+                    "requestId": _imink_app.request_id,
+                    "timestamp": _imink_app.timestamp,
                 },
                 "requestId": str(uuid.uuid4()),
             },
@@ -322,9 +320,9 @@ class NintendoSwitchOnlineAPI:
         parameters = {
             "parameter": {
                 "naBirthday": self.user_info["birthday"],
-                "timestamp": self.NSOL.flapg["timestamp"],
-                "f": self.NSOL.flapg["f"],
-                "requestId": self.NSOL.flapg["uuid"],
+                "timestamp": self.NSOL.f_imink["timestamp"],
+                "f": self.NSOL.f_imink["f"],
+                "requestId": self.NSOL.f_imink["uuid"],
                 "naIdToken": self.token["id_token"],
             },
             "requestId": str(uuid.uuid4()),
@@ -344,6 +342,7 @@ class NintendoSwitchOnlineAPI:
 
         if wasc_time is None:
             wasc_time = 0.0
+
         if wasc_access_token is not None:
             self.login = pickle.loads(
                 base64.b64decode(wasc_access_token.encode("utf-8"))
@@ -354,16 +353,21 @@ class NintendoSwitchOnlineAPI:
             self.headers["Authorization"] = f"Bearer {self.access_token}"
 
         if time.time() - int(float(wasc_time)) < 7170:
-            return
+            return self.refresh_login()
 
+    def refresh_login(self):
         login = self.NSOL.to_account()
         self.login = {
             "login": login,
             "time": time.time(),
         }
-        self.access_token = self.login["login"]["result"]["webApiServerCredential"][
-            "accessToken"
-        ]
+        try:
+            self.access_token = self.login["login"]["result"]["webApiServerCredential"][
+                "accessToken"
+            ]
+        except KeyError:
+            time.sleep(60)
+            return self.refresh_login()
         self.headers["Authorization"] = f"Bearer {self.access_token}"
         keyring.set_password(
             "nso-bridge",
