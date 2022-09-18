@@ -320,9 +320,9 @@ class NintendoSwitchOnlineAPI:
         parameters = {
             "parameter": {
                 "naBirthday": self.user_info["birthday"],
-                "timestamp": self.NSOL.f_imink["timestamp"],
-                "f": self.NSOL.f_imink["f"],
-                "requestId": self.NSOL.f_imink["uuid"],
+                "timestamp": self.NSOL._imink_nso.timestamp,
+                "f": self.NSOL._imink_nso.f,
+                "requestId": self.NSOL._imink_nso.request_id,
                 "naIdToken": self.token["id_token"],
             },
             "requestId": str(uuid.uuid4()),
