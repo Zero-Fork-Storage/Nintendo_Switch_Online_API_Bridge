@@ -1,8 +1,7 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 
-@dataclass
-class Imink:
+class Imink(BaseModel):
     f: str
     request_id: str
     timestamp: int

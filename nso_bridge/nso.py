@@ -70,6 +70,7 @@ class NintendoSwitchOnlineLogin:
 
         self._imink_nso = mAPI(token=self.id_token, step=IminkType.NSO).get_response()
         self.account = None
+
         self.body = {
             "parameter": {
                 "f": self._imink_nso.f,
@@ -339,7 +340,6 @@ class NintendoSwitchOnlineAPI:
     def sync_login(self):
         wasc_access_token = keyring.get_password("nso-bridge", "login")
         wasc_time = keyring.get_password("nso-bridge", "wasc_time")
-
         if wasc_time is None:
             wasc_time = 0.0
 
@@ -347,13 +347,16 @@ class NintendoSwitchOnlineAPI:
             self.login = pickle.loads(
                 base64.b64decode(wasc_access_token.encode("utf-8"))
             )
-            self.access_token = self.login["login"]["result"]["webApiServerCredential"][
-                "accessToken"
-            ]
-            self.headers["Authorization"] = f"Bearer {self.access_token}"
-
-        if time.time() - int(float(wasc_time)) < 7170:
-            return self.refresh_login()
+            if time.time() - int(float(wasc_time)) > 7200:
+                return self.refresh_login()
+            else:
+                self.access_token = self.login["login"]["result"][
+                    "webApiServerCredential"
+                ]["accessToken"]
+                self.headers["Authorization"] = f"Bearer {self.access_token}"
+        else:
+            if time.time() - int(float(wasc_time)) > 7200:
+                return self.refresh_login()
 
     def refresh_login(self):
         login = self.NSOL.to_account()
