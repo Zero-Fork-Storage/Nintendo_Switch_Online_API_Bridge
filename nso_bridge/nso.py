@@ -11,6 +11,7 @@ import requests
 from nso_bridge import __version__
 from nso_bridge.metadata import ZNCA_PLATFORM, ZNCA_USER_AGENT, ZNCA_VERSION
 from nso_bridge.models import Imink
+from nso_bridge.models.accounts import Accounts, Login, ServiceToken
 from nso_bridge.nsa import NintendoSwitchAccount
 from nso_bridge.utils import check_friend_code_hash, is_friend_code
 
@@ -45,12 +46,12 @@ class mAPI:
 class NintendoSwitchOnlineLogin:
     def __init__(
         self,
+        guid: str,
         user_info: dict,
         user_lang: str,
-        access_token,
-        guid,
-        id_token,
-    ):
+        access_token: str,
+        id_token: str,
+    ) -> None:
         self.headers = {
             "X-Platform": ZNCA_PLATFORM,
             "X-ProductVersion": ZNCA_VERSION,
@@ -69,7 +70,7 @@ class NintendoSwitchOnlineLogin:
         self.id_token = id_token
 
         self._imink_nso = mAPI(token=self.id_token, step=IminkType.NSO).get_response()
-        self.account = None
+        self.account: Accounts | None = None
 
         self.body = {
             "parameter": {
@@ -84,11 +85,11 @@ class NintendoSwitchOnlineLogin:
             "requestId": str(uuid.uuid4()),
         }
 
-    def to_account(self):
+    def to_account(self) -> Accounts:
         response = requests.post(url=self.url, headers=self.headers, json=self.body)
         if response.status_code != 200:
             raise Exception(f"Error: {response.status_code}")
-        self.account = response.json()
+        self.account = Accounts(**response.json())
         return self.account
 
 
@@ -114,19 +115,20 @@ class NintendoSwitchOnlineAPI:
 
         if session_token is None:
             session_token = self.nsa.nso_login(self.nsa.m_input)
-
-        self.token = self.nsa.get_service_token(session_token=session_token)
-        self.id_token = self.token.get("id_token")
-        self.access_token = self.token.get("access_token")
         self.guid = str(uuid.uuid4())
+        self.token: ServiceToken = self.nsa.get_service_token(
+            session_token=session_token
+        )
+        self.id_token = self.token.id_token
+        self.access_token = self.token.access_token
         self.user_info = self.nsa.get_user_info(self.access_token)
-        self.login = {"login": None, "time": 0}
+        self.login: Login = Login(**{"login": None, "time": 0})
         self.NSOL = NintendoSwitchOnlineLogin(
-            self.user_info,
-            self.user_lang,
-            self.access_token,
-            self.guid,
-            self.id_token,
+            guid=self.guid,
+            user_info=self.user_info,
+            user_lang=self.user_lang,
+            access_token=self.access_token,
+            id_token=self.id_token,
         )
 
     def imink_app(self):
@@ -324,7 +326,7 @@ class NintendoSwitchOnlineAPI:
                 "timestamp": self.NSOL._imink_nso.timestamp,
                 "f": self.NSOL._imink_nso.f,
                 "requestId": self.NSOL._imink_nso.request_id,
-                "naIdToken": self.token["id_token"],
+                "naIdToken": self.token.id_token,
             },
             "requestId": str(uuid.uuid4()),
         }
@@ -344,15 +346,15 @@ class NintendoSwitchOnlineAPI:
             wasc_time = 0.0
 
         if wasc_access_token is not None:
-            self.login = pickle.loads(
-                base64.b64decode(wasc_access_token.encode("utf-8"))
+            self.login = Login(
+                **pickle.loads(base64.b64decode(wasc_access_token.encode("utf-8")))
             )
             if time.time() - int(float(wasc_time)) > 7200:
                 return self.refresh_login()
             else:
-                self.access_token = self.login["login"]["result"][
-                    "webApiServerCredential"
-                ]["accessToken"]
+                self.access_token = (
+                    self.login.login.result.webApiServerCredential.accessToken
+                )
                 self.headers["Authorization"] = f"Bearer {self.access_token}"
         else:
             if time.time() - int(float(wasc_time)) > 7200:
@@ -360,15 +362,17 @@ class NintendoSwitchOnlineAPI:
 
     def refresh_login(self):
         login = self.NSOL.to_account()
-        self.login = {
-            "login": login,
-            "time": time.time(),
-        }
+        self.login = Login(
+            **{
+                "login": login,
+                "time": time.time(),
+            }
+        )
         try:
-            self.access_token = self.login["login"]["result"]["webApiServerCredential"][
-                "accessToken"
-            ]
-        except KeyError:
+            self.access_token = (
+                self.login.login.result.webApiServerCredential.accessToken
+            )
+        except Exception:
             time.sleep(60)
             return self.refresh_login()
         self.headers["Authorization"] = f"Bearer {self.access_token}"
@@ -380,6 +384,6 @@ class NintendoSwitchOnlineAPI:
         keyring.set_password(
             "nso-bridge",
             "wasc_access_token",
-            self.login["login"]["result"]["webApiServerCredential"]["accessToken"],
+            self.login.login.result.webApiServerCredential.accessToken,
         )
-        keyring.set_password("nso-bridge", "wasc_time", str(self.login["time"]))
+        keyring.set_password("nso-bridge", "wasc_time", str(self.login.time))

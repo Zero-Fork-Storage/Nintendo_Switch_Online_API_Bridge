@@ -7,6 +7,8 @@ import keyring
 import requests
 from bs4 import BeautifulSoup
 
+from nso_bridge.models import ServiceToken
+
 
 class NintendoSwitchAccount:
     def __init__(self, version: str = "unknown", nso_app_version: str = "2.1.1"):
@@ -118,7 +120,7 @@ class NintendoSwitchAccount:
         keyring.set_password("nso-bridge", "session_token", sess)
         return sess
 
-    def get_service_token(self, session_token: str):
+    def get_service_token(self, session_token: str) -> ServiceToken:
         headers = {
             "User-Agent": "Coral/2.0.0 (com.nintendo.znca; build:1489; iOS 15.3.1) Alamofire/5.4.4",
             "Accept": "application/json",
@@ -132,7 +134,7 @@ class NintendoSwitchAccount:
         )
         if resp.status_code != 200:
             raise Exception("Error: %s" % resp.status_code)
-        return resp.json()
+        return ServiceToken(**resp.json())
 
     def get_user_info(self, service_token: str, user_lang: str = "en-US"):
         headers = {
