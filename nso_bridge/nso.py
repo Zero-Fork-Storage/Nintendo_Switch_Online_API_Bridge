@@ -347,7 +347,9 @@ class NintendoSwitchOnlineAPI:
 
         if wasc_access_token is not None:
             self.login = Login(
-                **pickle.loads(base64.b64decode(wasc_access_token.encode("utf-8")))
+                **dict(
+                    pickle.loads(base64.b64decode(wasc_access_token.encode("utf-8")))
+                )
             )
             if time.time() - int(float(wasc_time)) > 7200:
                 return self.refresh_login()
