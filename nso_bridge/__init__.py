@@ -1,4 +1,4 @@
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 from nso_bridge.nsa import NintendoSwitchAccount
 from nso_bridge.nso import NintendoSwitchOnlineAPI
