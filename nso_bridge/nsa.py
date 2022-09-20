@@ -7,7 +7,7 @@ import keyring
 import requests
 from bs4 import BeautifulSoup
 
-from nso_bridge.models import ServiceToken
+from nso_bridge.models import ServiceToken, UserInfo
 
 
 class NintendoSwitchAccount:
@@ -136,7 +136,7 @@ class NintendoSwitchAccount:
             raise Exception("Error: %s" % resp.status_code)
         return ServiceToken(**resp.json())
 
-    def get_user_info(self, service_token: str, user_lang: str = "en-US"):
+    def get_user_info(self, service_token: str, user_lang: str = "en-US") -> UserInfo:
         headers = {
             "User-Agent": "Coral/2.0.0 (com.nintendo.znca; build:1489; iOS 15.3.1) Alamofire/5.4.4",
             "Accept": "application/json",
@@ -149,4 +149,5 @@ class NintendoSwitchAccount:
         response = requests.get(url=self.nso_user_me_url, headers=headers)
         if response.status_code != 200:
             raise Exception("Error: %s" % response.status_code)
-        return response.json()
+        json_data = response.json()
+        return UserInfo(**json_data)

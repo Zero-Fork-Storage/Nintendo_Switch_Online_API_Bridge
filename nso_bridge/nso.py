@@ -12,6 +12,7 @@ from nso_bridge import __version__
 from nso_bridge.metadata import ZNCA_PLATFORM, ZNCA_USER_AGENT, ZNCA_VERSION
 from nso_bridge.models import Imink
 from nso_bridge.models.accounts import Accounts, Login, ServiceToken
+from nso_bridge.models.user_info import UserInfo
 from nso_bridge.nsa import NintendoSwitchAccount
 from nso_bridge.utils import check_friend_code_hash, is_friend_code
 
@@ -47,7 +48,7 @@ class NintendoSwitchOnlineLogin:
     def __init__(
         self,
         guid: str,
-        user_info: dict,
+        user_info: UserInfo,
         user_lang: str,
         access_token: str,
         id_token: str,
@@ -56,7 +57,7 @@ class NintendoSwitchOnlineLogin:
             "X-Platform": ZNCA_PLATFORM,
             "X-ProductVersion": ZNCA_VERSION,
             "Accept-Language": user_lang,
-            "User-Agent": "com.nintendo.znca/" + ZNCA_VERSION + " (Android/12.1.2)",
+            "User-Agent": ZNCA_USER_AGENT,
             "Authorization": "Bearer",
             "Content-Type": "application/json; charset=utf-8",
             "Host": "api-lp1.znc.srv.nintendo.net",
@@ -65,7 +66,7 @@ class NintendoSwitchOnlineLogin:
         self.timestamp = int(time.time())
 
         self.guid = guid
-        self.user_info = user_info
+        self.user_info: UserInfo | None = user_info
         self.access_token = access_token
         self.id_token = id_token
 
@@ -78,9 +79,9 @@ class NintendoSwitchOnlineLogin:
                 "naIdToken": self.id_token,
                 "timestamp": self._imink_nso.timestamp,
                 "requestId": self._imink_nso.request_id,
-                "naCountry": self.user_info["country"],
-                "naBirthday": self.user_info["birthday"],
-                "language": self.user_info["language"],
+                "naCountry": self.user_info.country,
+                "naBirthday": self.user_info.birthday,
+                "language": self.user_info.language,
             },
             "requestId": str(uuid.uuid4()),
         }
@@ -322,7 +323,7 @@ class NintendoSwitchOnlineAPI:
     def getToken(self):
         parameters = {
             "parameter": {
-                "naBirthday": self.user_info["birthday"],
+                "naBirthday": self.user_info.birthday,
                 "timestamp": self.NSOL._imink_nso.timestamp,
                 "f": self.NSOL._imink_nso.f,
                 "requestId": self.NSOL._imink_nso.request_id,
