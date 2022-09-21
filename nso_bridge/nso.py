@@ -12,7 +12,10 @@ from nso_bridge import __version__
 from nso_bridge.metadata import ZNCA_PLATFORM, ZNCA_USER_AGENT, ZNCA_VERSION
 from nso_bridge.models import Imink
 from nso_bridge.models.accounts import Accounts, Login, ServiceToken
+from nso_bridge.models.friends import FriendCode, Friends
+from nso_bridge.models.response import ErrorResponse
 from nso_bridge.models.user_info import UserInfo
+from nso_bridge.models.users import CurrentUser
 from nso_bridge.nsa import NintendoSwitchAccount
 from nso_bridge.utils import check_friend_code_hash, is_friend_code
 
@@ -211,12 +214,16 @@ class NintendoSwitchOnlineAPI:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
 
-    def getCurrentUser(self):
+    def getCurrentUser(self) -> (CurrentUser | ErrorResponse):
         """Get information of My Nintendo Switch Account."""
         resp = requests.post(url=self.url + "/v3/User/ShowSelf", headers=self.headers)
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
-        return resp.json()
+        resp = resp.json()
+        if resp["status"] != 0:
+            return ErrorResponse(**resp)
+        else:
+            return CurrentUser(**resp)
 
     def getCurrentUserPermissions(self):
         """Get information of current user permissions."""
@@ -227,21 +234,28 @@ class NintendoSwitchOnlineAPI:
             raise Exception(f"Error: {resp.status_code}")
         return resp.json()
 
-    def getFriends(self):
+    def getFriends(self) -> (Friends | ErrorResponse):
         """Get information of friends registered to Nintendo Switch account."""
         resp = requests.post(url=self.url + "/v3/Friend/List", headers=self.headers)
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
-        return resp.json()
+        resp = resp.json()
+        if resp["status"] != 0:
+            return ErrorResponse(**resp)
+        else:
+            return Friends(**resp)
 
-    def getFriendCodeUrl(self):
+    def getFriendCodeUrl(self) -> (FriendCode | ErrorResponse):
         """Get information of friend code URL."""
         resp = requests.post(
             url=self.url + "/v3/Friend/CreateFriendCodeUrl", headers=self.headers
         )
         if resp.status_code != 200:
             raise Exception(f"Error: {resp.status_code}")
-        return resp.json()
+        resp = resp.json()
+        if resp["status"] != 0:
+            return ErrorResponse(**resp)
+        return FriendCode(**resp)
 
     def getUserByFriendCode(self, friend_code: str, _hash: str | None = None):
         if not is_friend_code(friend_code):
