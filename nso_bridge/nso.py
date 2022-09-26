@@ -27,6 +27,12 @@ class IminkType(Enum):
 
 class mAPI:
     def __init__(self, token: str, step: IminkType):
+        """Initialize the API object for the given token and step .
+
+        Args:
+            token (str): ID Token or Access Token
+            step (IminkType): Session type, NSO or APP.
+        """
         self.token = token
         self.step = step
 
@@ -38,6 +44,14 @@ class mAPI:
         self.api_url = "https://api.imink.app/f"
 
     def get_response(self) -> Imink:
+        """Get the response from the API .
+
+        Raises:
+            Exception: Raises an exception if the response is not successful.
+
+        Returns:
+            Imink: Returns the Imink object.
+        """
         api_resp = requests.post(
             url=self.api_url, data=json.dumps(self.api_body), headers=self.api_header
         )
@@ -48,6 +62,8 @@ class mAPI:
 
 
 class NintendoSwitchOnlineLogin:
+    """Login to Nintendo Switch Online"""
+
     def __init__(
         self,
         guid: str,
@@ -56,6 +72,13 @@ class NintendoSwitchOnlineLogin:
         access_token: str,
         id_token: str,
     ) -> None:
+        """
+        Args:
+            guid (str): GUID of the user.
+            user_info (UserInfo): User info.
+            user_lang (str): User language.
+            access_token (str): Access token.
+        """
         self.headers = {
             "X-Platform": ZNCA_PLATFORM,
             "X-ProductVersion": ZNCA_VERSION,
@@ -90,6 +113,14 @@ class NintendoSwitchOnlineLogin:
         }
 
     def to_account(self) -> Accounts:
+        """Convert the login response to an account object.
+
+        Returns:
+            Accounts: Returns the account object.
+
+        Raises:
+            Exception: Raises an exception if the response is not successful.
+        """
         response = requests.post(url=self.url, headers=self.headers, json=self.body)
         if response.status_code != 200:
             raise Exception(f"Error: {response.status_code}")
@@ -98,12 +129,20 @@ class NintendoSwitchOnlineLogin:
 
 
 class NintendoSwitchOnlineAPI:
+    """Nintendo Switch Online API."""
+
     def __init__(
         self,
-        session_token: str,
+        session_token: str | None = None,
         user_lang: str = "en-US",
         nso_app_version: str | None = None,
     ):
+        """
+        Args:
+            session_token: The session token.
+            user_lang: The user language.
+            nso_app_version: The Nintendo Switch Online app version.
+        """
         self.nsa = NintendoSwitchAccount()
         self.nso_app_version = ZNCA_VERSION or nso_app_version
         self.url = "https://api-lp1.znc.srv.nintendo.net"
@@ -136,6 +175,11 @@ class NintendoSwitchOnlineAPI:
         )
 
     def imink_app(self):
+        """Get the Imink APP object.
+
+        Returns:
+            Imink: Returns the Imink object.
+        """
         return mAPI(token=self.access_token, step=IminkType.APP).get_response()
 
     def getAnnouncements(self):

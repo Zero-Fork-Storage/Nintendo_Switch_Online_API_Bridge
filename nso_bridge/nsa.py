@@ -11,7 +11,14 @@ from nso_bridge.models import ServiceToken, UserInfo
 
 
 class NintendoSwitchAccount:
+    """Nintendo Switch Online authorization"""
+
     def __init__(self, version: str = "unknown", nso_app_version: str = "2.1.1"):
+        """
+        Args:
+            version (str, optional): Client version. Defaults to "unknown".
+            nso_app_version (str, optional): Nintendo Switch Online APP (AOS, IOS) version. Defaults to "2.1.1".
+        """
         self.client_id = "71b963c1b7b6d119"
         self.urlScheme = "npf71b963c1b7b6d119"
         self.version = version
@@ -35,6 +42,12 @@ class NintendoSwitchAccount:
         self.authCodeChallenge = base64.urlsafe_b64encode(self.authHash.digest())
 
     def get_nso_app_version(self):
+        """
+        Get Nintendo Switch Online APP version.
+
+        Returns:
+            str: Nintendo Switch Online APP version.
+        """
         try:
             page = requests.get(
                 self.apple_app_store_url,
@@ -50,6 +63,11 @@ class NintendoSwitchAccount:
             return "2.1.1"
 
     def payload_auth(self):
+        """Get payload for Nintendo Switch Online authorization
+
+        Returns:
+            dict: Payload for Nintendo Switch Online authorization
+        """
         body = {
             "state": self.state,
             "redirect_uri": "npf%s://auth" % self.client_id,
@@ -63,6 +81,11 @@ class NintendoSwitchAccount:
         return body
 
     def session_token_payload(self, session_token_code, auth_code_verifier):
+        """Get session_token_code payload for Nintendo Switch Online authorization
+
+        Returns:
+            dict: Payload for Nintendo Switch Online authorization
+        """
         body = {
             "client_id": self.client_id,
             "session_token_code": session_token_code,
@@ -71,6 +94,14 @@ class NintendoSwitchAccount:
         return body
 
     def service_token_payload(self, session_token):
+        """Get service_token payload for Nintendo Switch Online authorization
+
+        Args:
+            session_token (str): Session token
+
+        Returns:
+            dict: Payload for Nintendo Switch Online authorization
+        """
         body = {
             "client_id": self.client_id,
             "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer-session-token",
@@ -79,6 +110,17 @@ class NintendoSwitchAccount:
         return body
 
     def nso_login(self, r_input):
+        """Login to Nintendo Switch Online
+
+        Args:
+            r_input (str): Input from callback URL
+
+        Returns:
+            str: session token
+
+        Raises:
+            Exception: HTTP status code
+        """
         resp = self.session.get(
             url=self.nso_authorize_url,
             headers={
@@ -101,7 +143,16 @@ class NintendoSwitchAccount:
     def m_input(self):
         return input("Enter the callback url: \n")
 
-    def get_session_token(self, session_token_code, auth_code_verifier):
+    def get_session_token(self, session_token_code, auth_code_verifier) -> str:
+        """Get session token from Nintendo Switch Online
+
+        Args:
+            session_token_code (str): Session token code
+            auth_code_verifier (str): Auth code verifier
+
+        Returns:
+            str: session token
+        """
         resp = self.session.post(
             self.nso_session_token_url,
             headers={
@@ -121,6 +172,17 @@ class NintendoSwitchAccount:
         return sess
 
     def get_service_token(self, session_token: str) -> ServiceToken:
+        """Get a new NSO API service token .
+
+        Args:
+            session_token (str): Session token
+
+        Raises:
+            Exception: HTTP status code
+
+        Returns:
+            ServiceToken: NSO API service token
+        """
         headers = {
             "User-Agent": "Coral/2.0.0 (com.nintendo.znca; build:1489; iOS 15.3.1) Alamofire/5.4.4",
             "Accept": "application/json",
@@ -137,6 +199,18 @@ class NintendoSwitchAccount:
         return ServiceToken(**resp.json())
 
     def get_user_info(self, service_token: str, user_lang: str = "en-US") -> UserInfo:
+        """Get user info from Nintendo Switch Online
+
+        Args:
+            service_token (str): NSO API service token
+            user_lang (str, optional): User language. Defaults to "en-US".
+
+        Returns:
+            UserInfo: User info
+
+        Raises:
+            Exception: HTTP status code
+        """
         headers = {
             "User-Agent": "Coral/2.0.0 (com.nintendo.znca; build:1489; iOS 15.3.1) Alamofire/5.4.4",
             "Accept": "application/json",
